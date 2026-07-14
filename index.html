@@ -381,20 +381,32 @@ els.input.addEventListener("input", () => { els.btn.disabled = !els.input.value.
 els.input.addEventListener("keydown", (e) => { if (e.key === "Enter") submitGuess(); });
 els.btn.addEventListener("click", submitGuess);
 
+// ---------- Share ----------
 els.shareBtn.addEventListener("click", async () => {
   const t = save.today;
   const stars = t.solved ? "★".repeat(t.points) + "☆".repeat(3 - t.points) : "☆☆☆";
-  const text = "Riddler No." + (num + 1) + " — " +
-    (t.solved ? t.points + (t.points > 1 ? " pts " : " pt ") : "X ") + stars +
-    (save.streak > 1 ? "  🔥" + save.streak : "") + "\nriddler.fun";
-  try {
-    await navigator.clipboard.writeText(text);
-    els.shareBtn.textContent = "Copied!";
-    setTimeout(() => { els.shareBtn.textContent = "Share result"; }, 1600);
-  } catch {}
+  const bits = [];
+  if (save.streak > 1) bits.push("🔥 " + save.streak + " day streak");
+  if (myRank) bits.push("#" + myRank + " worldwide");
+  bits.push("No. " + (num + 1));
+  const headline = t.solved
+    ? "I solved today's Riddler in " + t.guesses.length + (t.guesses.length === 1 ? " guess! " : " guesses ") + stars
+    : "Today's Riddler stumped me " + stars;
+  const text = headline + "\n" + bits.join(" · ") + "\nThink you can beat me? Play at www.riddler.fun";
+  if (navigator.share) {
+    try { await navigator.share({ text: text }); } catch {}
+  } else {
+    try {
+      await navigator.clipboard.writeText(text);
+      els.shareBtn.textContent = "Copied!";
+      setTimeout(() => { els.shareBtn.textContent = "Share result"; }, 1600);
+    } catch {}
+  }
 });
 
 // ---------- Worldwide rank ----------
+let myRank = null;
+
 function makeId() {
   try { return "p-" + crypto.randomUUID(); }
   catch { return "p-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10); }
@@ -427,6 +439,7 @@ async function loadRank() {
     const res = await fetch(SCRIPT_URL + "?id=" + encodeURIComponent(save.player.id));
     const data = await res.json();
     if (data && data.rank) {
+      myRank = data.rank;
       els.statRank.textContent = "#" + data.rank;
       els.joinedNote.style.display = "";
       els.joinedNote.textContent = "You're #" + data.rank + " worldwide of " + data.players + " player" + (data.players !== 1 ? "s" : "");
