@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riddler — A daily riddle</title>
+<meta name="description" content="One riddle a day. Three guesses. Keep your streak alive.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❓</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1A1A1B;
+    --muted: #8FA6B8;
+    --sky: #5BA9E0;
+    --sky-deep: #4694CE;
+    --gold: #F5B700;
+    --yellow-bg: #FFF6D6;
+    --yellow-border: #F2DC8A;
+    --yellow-ink: #9A8A3F;
+    --slot-bg: #F8FBFD;
+    --slot-border: #D8E4EE;
+    --hairline: #E3EDF4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: #FFFFFF; color: var(--ink);
+    font-family: 'Libre Franklin', 'Helvetica Neue', Arial, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 20px 40px;
+  }
+  header { text-align: center; margin-bottom: 22px; }
+  .wordmark { font-size: 30px; font-weight: 800; }
+  .sub { font-size: 12px; color: var(--muted); margin-top: 6px; letter-spacing: .06em; }
+  .stats {
+    display: flex; gap: 36px; justify-content: center; width: 100%; max-width: 420px;
+    padding-bottom: 18px; margin-bottom: 26px; border-bottom: 1px solid var(--hairline);
+  }
+  .stat { text-align: center; }
+  .stat b { display: block; font-size: 18px; font-weight: 700; }
+  .stat span { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  main { width: 100%; max-width: 420px; }
+  .riddle { font-size: 22px; font-weight: 600; line-height: 1.5; text-align: center; margin: 0 0 28px; }
+  .slots { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+  .slot {
+    border: 1.5px solid var(--slot-border); border-radius: 8px; padding: 12px 16px;
+    font-size: 15px; display: flex; justify-content: space-between; align-items: center;
+    background: var(--slot-bg); transition: all .25s ease;
+  }
+  .slot .hint { color: #B4C4D1; }
+  .slot.miss { background: var(--yellow-bg); border-color: var(--yellow-border); color: var(--yellow-ink); text-decoration: line-through; }
+  .slot.win { background: var(--sky); border-color: var(--sky); color: #fff; font-weight: 600; text-decoration: none; }
+  .slot .g { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
+  .inputRow { display: flex; gap: 10px; }
+  input[type=text] {
+    flex: 1; min-width: 0; border: 1.5px solid var(--sky); border-radius: 8px; padding: 13px 16px;
+    font-size: 16px; font-family: inherit; color: var(--ink); outline: none;
+  }
+  input[type=text]:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,183,0,.18); }
+  input::placeholder { color: #A9BECF; }
+  button {
+    border: none; border-radius: 8px; padding: 13px 22px; font-size: 15px; font-weight: 700;
+    background: var(--sky); color: #fff; cursor: pointer; font-family: inherit;
+  }
+  button:disabled { opacity: .4; cursor: default; }
+  button:not(:disabled):hover { background: var(--sky-deep); }
+  .result { text-align: center; margin-top: 6px; animation: rise .45s ease both; }
+  .answerLabel { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .answer { font-size: 30px; font-weight: 800; text-transform: capitalize; }
+  .stars { font-size: 22px; letter-spacing: 4px; color: var(--gold); margin: 6px 0 14px; }
+  .share { width: 100%; }
+  .countdown { font-size: 12px; color: var(--muted); margin-top: 14px; font-variant-numeric: tabular-nums; }
+  footer { margin-top: 18px; font-size: 13px; color: var(--muted); }
+  .shake { animation: shake .4s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 50%{transform:translateX(6px)} 75%{transform:translateX(-4px)} }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .shake, .result { animation: none; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">Riddler</div>
+  <div class="sub" id="sub"></div>
+</header>
+
+<div class="stats">
+  <div class="stat"><b id="statStreak">—</b><span>streak</span></div>
+  <div class="stat"><b id="statPoints">0</b><span>points</span></div>
+  <div class="stat"><b id="statBest">—</b><span>best</span></div>
+</div>
+
+<main id="main">
+  <p class="riddle" id="riddleText"></p>
+  <div class="slots" id="slots"></div>
+  <div class="inputRow" id="inputRow">
+    <input type="text" id="guessInput" placeholder="Your answer…" autocomplete="off" autofocus>
+    <button id="guessBtn" disabled>Guess</button>
+  </div>
+  <div class="result" id="result" style="display:none">
+    <div class="answerLabel" id="answerLabel"></div>
+    <div class="answer" id="answerText"></div>
+    <div class="stars" id="stars"></div>
+    <button class="share" id="shareBtn">Share result</button>
+    <div class="countdown" id="countdown"></div>
+  </div>
+</main>
+
+<footer id="footer"></footer>
+
+<script>
+/* ============================================================
+   RIDDLE BANK — edit this section to add or change riddles!
+
+   Each riddle looks like:
+     { q: "The riddle question?", a: ["main answer", "other accepted answer"] }
+
+   - "q" is the riddle shown to players.
+   - "a" is a list of every answer you'll accept. The FIRST one
+     is what gets revealed as "the answer," so make it the
+     cleanest version. Add variations people might type
+     (e.g. "echo" and "an echo").
+   - Riddles rotate daily IN ORDER, starting from Jan 1, 2026,
+     and loop back to the top when the list runs out.
+   - Don't worry about capitalization or punctuation in
+     answers — matching ignores both, and small typos too.
+   ============================================================ */
+const RIDDLES = [
+  { q: "I speak without a mouth and hear without ears. I have no body, but I come alive with wind.", a: ["echo", "an echo"] },
+  { q: "The more of me you take, the more you leave behind. What am I?", a: ["footsteps", "steps", "footprints"] },
+  { q: "I have cities, but no houses. I have mountains, but no trees. I have water, but no fish.", a: ["map", "a map"] },
+  { q: "What has keys but can't open locks?", a: ["piano", "a piano", "keyboard"] },
+  { q: "What gets wetter the more it dries?", a: ["towel", "a towel"] },
+  { q: "I'm tall when I'm young, and short when I'm old. What am I?", a: ["candle", "a candle"] },
+  { q: "What has a head and a tail but no body?", a: ["coin", "a coin"] },
+  { q: "What can travel around the world while staying in a corner?", a: ["stamp", "a stamp", "postage stamp"] },
+  { q: "What has hands but cannot clap?", a: ["clock", "a clock"] },
+  { q: "What has one eye but cannot see?", a: ["needle", "a needle"] },
+  { q: "What runs all around a backyard, yet never moves?", a: ["fence", "a fence"] },
+  { q: "The person who makes it sells it. The person who buys it never uses it. What is it?", a: ["coffin", "a coffin", "casket"] },
+  { q: "What can you break, even if you never pick it up or touch it?", a: ["promise", "a promise", "silence"] },
+  { q: "What goes up but never comes down?", a: ["age", "your age"] },
+  { q: "I shave every day, but my beard stays the same. Who am I?", a: ["barber", "a barber"] },
+  { q: "What has many teeth but cannot bite?", a: ["comb", "a comb"] },
+  { q: "What is full of holes but still holds water?", a: ["sponge", "a sponge"] },
+  { q: "What question can you never answer yes to?", a: ["are you asleep", "are you asleep yet", "are you dead"] },
+  { q: "What is always in front of you but can't be seen?", a: ["future", "the future"] },
+  { q: "What can you keep after giving it to someone?", a: ["your word", "word", "a promise", "promise"] },
+  { q: "I have branches, but no fruit, trunk, or leaves. What am I?", a: ["bank", "a bank"] },
+  { q: "What invention lets you look right through a wall?", a: ["window", "a window"] },
+  { q: "If you drop me I'm sure to crack, but give me a smile and I'll always smile back.", a: ["mirror", "a mirror"] },
+  { q: "What begins with T, finishes with T, and has T in it?", a: ["teapot", "a teapot"] },
+  { q: "The more you have of me, the less you see. What am I?", a: ["darkness", "the dark", "dark", "fog"] },
+  { q: "What month of the year has 28 days?", a: ["all of them", "all", "every month", "all months", "every one"] },
+  { q: "What goes through cities and fields, but never moves?", a: ["road", "a road", "roads"] },
+  { q: "I'm light as a feather, yet the strongest person can't hold me for five minutes.", a: ["breath", "your breath", "a breath"] },
+  { q: "What has a bottom at the top?", a: ["legs", "your legs", "leg", "a leg"] },
+  { q: "What kind of band never plays music?", a: ["rubber band", "a rubber band", "rubberband"] },
+  { q: "What building has the most stories?", a: ["library", "a library", "the library"] },
+  { q: "I follow you all the time and copy your every move, but you can't touch me or catch me.", a: ["shadow", "your shadow", "a shadow"] },
+  { q: "What has words, but never speaks?", a: ["book", "a book"] },
+  { q: "Where does today come before yesterday?", a: ["dictionary", "the dictionary", "a dictionary"] },
+  { q: "What can fill a room but takes up no space?", a: ["light", "sound"] },
+  { q: "If two's company and three's a crowd, what are four and five?", a: ["nine", "9"] },
+  { q: "What five-letter word becomes shorter when you add two letters to it?", a: ["short"] },
+  { q: "What is so fragile that saying its name breaks it?", a: ["silence"] },
+  { q: "A cowboy rode into town on Friday, stayed three days, and rode out on Friday. How?", a: ["horse named friday", "his horse is named friday", "the horse is named friday", "his horse was named friday", "horse is called friday", "friday is his horse", "the horse was named friday", "friday is the horse"] },
+  { q: "What belongs to you, but other people use it more than you do?", a: ["your name", "name", "my name"] },
+  { q: "I am not alive, but I grow. I don't have lungs, but I need air. What am I?", a: ["fire", "a fire", "flame"] },
+  { q: "What can run but never walks, has a mouth but never talks?", a: ["river", "a river"] },
+  { q: "Forward I am heavy, but backward I am not. What am I?", a: ["ton", "a ton"] },
+  { q: "What kind of room has no doors or windows?", a: ["mushroom", "a mushroom"] },
+  { q: "What tastes better than it smells?", a: ["tongue", "your tongue", "a tongue"] },
+  { q: "What has 13 hearts, but no other organs?", a: ["deck of cards", "a deck of cards", "cards", "card deck"] },
+  { q: "What gets bigger the more you take away from it?", a: ["hole", "a hole"] },
+  { q: "I have a neck but no head, and I wear a cap. What am I?", a: ["bottle", "a bottle"] },
+  { q: "What kind of coat is best put on wet?", a: ["coat of paint", "a coat of paint", "paint"] },
+  { q: "What comes once in a minute, twice in a moment, but never in a thousand years?", a: ["m", "the letter m", "letter m"] },
+];
+/* ============================ end riddle bank ============================ */
+
+// ---------- Dates ----------
+const EPOCH = new Date(2026, 0, 1);
+const todayKey = (d = new Date()) =>
+  d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const dayNumber = () => {
+  const d = new Date();
+  const mid = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.max(0, Math.round((mid - EPOCH) / 86400000));
+};
+const yesterdayKey = () => { const d = new Date(); d.setDate(d.getDate() - 1); return todayKey(d); };
+
+// ---------- Answer matching ----------
+const normalize = (s) => s.toLowerCase()
+  .replace(/[^a-z0-9\s]/g, "")
+  .replace(/\b(a|an|the|its|it is)\b/g, " ")
+  .replace(/\s+/g, " ").trim();
+
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  if (Math.abs(m - n) > 1) return 99;
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return dp[m][n];
+}
+
+function isCorrect(guess, answers) {
+  const g = normalize(guess);
+  if (!g) return false;
+  return answers.some((raw) => {
+    const a = normalize(raw);
+    if (g === a) return true;
+    if (a.length >= 5 && editDistance(g, a) <= 1) return true;
+    if (a.length >= 3 && new RegExp("(^|\\s)" + a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|\\s)").test(g)) return true;
+    return false;
+  });
+}
+
+// ---------- Storage ----------
+const SAVE_KEY = "riddler-v1";
+const freshSave = () => ({
+  streak: 0, bestStreak: 0, totalPoints: 0, played: 0, lastSolvedDate: null,
+  today: { date: todayKey(), guesses: [], done: false, solved: false, points: 0 },
+});
+function loadSave() {
+  try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; }
+  catch { return null; }
+}
+function persist(s) {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch {}
+}
+
+// ---------- Game ----------
+let save = loadSave() || freshSave();
+const tk = todayKey();
+if (save.today.date !== tk) {
+  if (save.lastSolvedDate !== yesterdayKey() && save.lastSolvedDate !== tk) save.streak = 0;
+  save.today = { date: tk, guesses: [], done: false, solved: false, points: 0 };
+  persist(save);
+}
+
+const num = dayNumber();
+const riddle = RIDDLES[num % RIDDLES.length];
+
+// ---------- Elements ----------
+const $ = (id) => document.getElementById(id);
+const els = {
+  sub: $("sub"), riddleText: $("riddleText"), slots: $("slots"), inputRow: $("inputRow"),
+  input: $("guessInput"), btn: $("guessBtn"), result: $("result"), answerLabel: $("answerLabel"),
+  answerText: $("answerText"), stars: $("stars"), shareBtn: $("shareBtn"), countdown: $("countdown"),
+  footer: $("footer"), main: $("main"),
+  statStreak: $("statStreak"), statPoints: $("statPoints"), statBest: $("statBest"),
+};
+
+els.sub.textContent = "No. " + (num + 1) + " · " +
+  new Date().toLocaleDateString(undefined, { month: "long", day: "numeric" });
+els.riddleText.textContent = riddle.q;
+
+function render() {
+  const t = save.today;
+  els.statStreak.textContent = save.streak > 0 ? "🔥 " + save.streak : "—";
+  els.statPoints.textContent = save.totalPoints;
+  els.statBest.textContent = save.bestStreak > 0 ? save.bestStreak : "—";
+
+  els.slots.innerHTML = "";
+  for (let i = 0; i < 3; i++) {
+    const g = t.guesses[i];
+    const div = document.createElement("div");
+    div.className = "slot";
+    if (g) {
+      const isWin = t.solved && i === t.guesses.length - 1;
+      div.classList.add(isWin ? "win" : "miss");
+      const gs = document.createElement("span"); gs.className = "g"; gs.textContent = g;
+      const mark = document.createElement("span"); mark.textContent = isWin ? "✓" : "✕"; mark.style.fontSize = "14px";
+      div.append(gs, mark);
+    } else {
+      const hint = document.createElement("span"); hint.className = "hint";
+      hint.textContent = "guess " + (i + 1) + " · " + (3 - i) + (3 - i > 1 ? " pts" : " pt");
+      div.append(hint);
+    }
+    els.slots.appendChild(div);
+  }
+
+  if (t.done) {
+    els.inputRow.style.display = "none";
+    els.result.style.display = "";
+    els.answerLabel.textContent = t.solved ? (t.points === 3 ? "First try!" : "Solved") : "The answer was";
+    els.answerText.textContent = riddle.a[0].replace(/^(a|an|the)\s/i, "");
+    els.stars.textContent = "★".repeat(t.points) + "☆".repeat(3 - t.points);
+    els.footer.textContent = "";
+  } else {
+    const left = 3 - t.guesses.length;
+    els.footer.textContent = left + (left !== 1 ? " guesses left" : " guess left");
+  }
+}
+
+function submit() {
+  const g = els.input.value.trim();
+  const t = save.today;
+  if (!g || t.done) return;
+  const correct = isCorrect(g, riddle.a);
+  t.guesses.push(g);
+
+  if (correct) {
+    const points = 4 - t.guesses.length;
+    const streak = save.lastSolvedDate === yesterdayKey() ? save.streak + 1 : 1;
+    save.streak = streak;
+    save.bestStreak = Math.max(save.bestStreak, streak);
+    save.totalPoints += points;
+    save.played += 1;
+    save.lastSolvedDate = todayKey();
+    Object.assign(t, { done: true, solved: true, points });
+  } else if (t.guesses.length >= 3) {
+    save.streak = 0;
+    save.played += 1;
+    Object.assign(t, { done: true, solved: false, points: 0 });
+  } else {
+    els.main.classList.remove("shake");
+    void els.main.offsetWidth; // restart animation
+    els.main.classList.add("shake");
+  }
+  els.input.value = "";
+  els.btn.disabled = true;
+  persist(save);
+  render();
+}
+
+els.input.addEventListener("input", () => { els.btn.disabled = !els.input.value.trim(); });
+els.input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+els.btn.addEventListener("click", submit);
+
+els.shareBtn.addEventListener("click", async () => {
+  const t = save.today;
+  const stars = t.solved ? "★".repeat(t.points) + "☆".repeat(3 - t.points) : "☆☆☆";
+  const text = "Riddler No." + (num + 1) + " — " +
+    (t.solved ? t.points + (t.points > 1 ? " pts " : " pt ") : "X ") + stars +
+    (save.streak > 1 ? "  🔥" + save.streak : "") + "\nriddler.fun";
+  try {
+    await navigator.clipboard.writeText(text);
+    els.shareBtn.textContent = "Copied!";
+    setTimeout(() => { els.shareBtn.textContent = "Share result"; }, 1600);
+  } catch {}
+});
+
+// countdown to next riddle
+setInterval(() => {
+  if (!save.today.done) return;
+  const mid = new Date(); mid.setHours(24, 0, 0, 0);
+  const secs = Math.max(0, Math.floor((mid - Date.now()) / 1000));
+  const p = (n) => String(n).padStart(2, "0");
+  els.countdown.textContent = "Next riddle in " +
+    p(Math.floor(secs / 3600)) + ":" + p(Math.floor((secs % 3600) / 60)) + ":" + p(secs % 60);
+}, 1000);
+
+render();
+</script>
+</body>
+</html>
