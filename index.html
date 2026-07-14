@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-L2EL9RRYEX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-L2EL9RRYEX');
+</script>
 <title>Riddler — A daily riddle</title>
 <meta name="description" content="One riddle a day. Three guesses. Keep your streak alive.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❓</text></svg>">
@@ -51,12 +59,13 @@
   .slot.miss { background: var(--yellow-bg); border-color: var(--yellow-border); color: var(--yellow-ink); text-decoration: line-through; }
   .slot.win { background: var(--sky); border-color: var(--sky); color: #fff; font-weight: 600; text-decoration: none; }
   .slot .g { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
+  .left { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
   .inputRow { display: flex; gap: 10px; }
-  input[type=text] {
+  input[type=text], input[type=email] {
     flex: 1; min-width: 0; border: 1.5px solid var(--sky); border-radius: 8px; padding: 13px 16px;
     font-size: 16px; font-family: inherit; color: var(--ink); outline: none;
   }
-  input[type=text]:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,183,0,.18); }
+  input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,183,0,.18); }
   input::placeholder { color: #A9BECF; }
   button {
     border: none; border-radius: 8px; padding: 13px 22px; font-size: 15px; font-weight: 700;
@@ -70,7 +79,20 @@
   .stars { font-size: 22px; letter-spacing: 4px; color: var(--gold); margin: 6px 0 14px; }
   .share { width: 100%; }
   .countdown { font-size: 12px; color: var(--muted); margin-top: 14px; font-variant-numeric: tabular-nums; }
-  footer { margin-top: 18px; font-size: 13px; color: var(--muted); }
+
+  /* Rank tracking */
+  .join { margin-top: 22px; }
+  .join p { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+  .join .fields { display: flex; gap: 10px; }
+  .join .err { color: #C0564B; font-size: 12px; margin-top: 8px; display: none; }
+  .joined-note { font-size: 13px; color: var(--muted); margin-top: 16px; }
+
+  footer {
+    margin-top: 40px; font-size: 12px; color: #B4C4D1; text-align: center; line-height: 1.8;
+  }
+  footer a { color: #B4C4D1; }
+  footer a:hover { color: var(--muted); }
+
   .shake { animation: shake .4s ease; }
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 50%{transform:translateX(6px)} 75%{transform:translateX(-4px)} }
   @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -87,12 +109,13 @@
 <div class="stats">
   <div class="stat"><b id="statStreak">—</b><span>streak</span></div>
   <div class="stat"><b id="statPoints">0</b><span>points</span></div>
-  <div class="stat"><b id="statBest">—</b><span>best</span></div>
+  <div class="stat"><b id="statRank">—</b><span>rank</span></div>
 </div>
 
 <main id="main">
   <p class="riddle" id="riddleText"></p>
   <div class="slots" id="slots"></div>
+  <div class="left" id="left"></div>
   <div class="inputRow" id="inputRow">
     <input type="text" id="guessInput" placeholder="Your answer…" autocomplete="off" autofocus>
     <button id="guessBtn" disabled>Guess</button>
@@ -103,10 +126,23 @@
     <div class="stars" id="stars"></div>
     <button class="share" id="shareBtn">Share result</button>
     <div class="countdown" id="countdown"></div>
+
+    <div class="join" id="joinBox" style="display:none">
+      <p>Enter your email to track your worldwide rank</p>
+      <div class="fields">
+        <input type="email" id="joinEmail" placeholder="you@email.com" autocomplete="email">
+        <button id="joinBtn">Track</button>
+      </div>
+      <div class="err" id="joinErr">Please enter a valid email.</div>
+    </div>
+    <div class="joined-note" id="joinedNote" style="display:none"></div>
   </div>
 </main>
 
-<footer id="footer"></footer>
+<footer>
+  This week's Riddler is sponsored by <a href="https://cranel.co" target="_blank" rel="noopener">CRANEL</a><br>
+  <a href="mailto:christine.jurzenski@gmail.com?subject=Riddler%20sponsorship">Sponsor the Riddler</a>
+</footer>
 
 <script>
 /* ============================================================
@@ -179,6 +215,9 @@ const RIDDLES = [
 ];
 /* ============================ end riddle bank ============================ */
 
+// Leaderboard backend (Google Apps Script web app)
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_8PcpvIxZ1TXdYDYEFtiijmCkGcKOdXG70zHcrte2PDf1VyfCXahgbGYE4NAPZbQc/exec";
+
 // ---------- Dates ----------
 const EPOCH = new Date(2026, 0, 1);
 const todayKey = (d = new Date()) =>
@@ -223,7 +262,8 @@ function isCorrect(guess, answers) {
 const SAVE_KEY = "riddler-v1";
 const freshSave = () => ({
   streak: 0, bestStreak: 0, totalPoints: 0, played: 0, lastSolvedDate: null,
-  today: { date: todayKey(), guesses: [], done: false, solved: false, points: 0 },
+  player: null, // { id, email } once they join rank tracking
+  today: { date: todayKey(), guesses: [], done: false, solved: false, points: 0, submitted: false },
 });
 function loadSave() {
   try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; }
@@ -235,10 +275,11 @@ function persist(s) {
 
 // ---------- Game ----------
 let save = loadSave() || freshSave();
+if (save.player === undefined) save.player = null;
 const tk = todayKey();
 if (save.today.date !== tk) {
   if (save.lastSolvedDate !== yesterdayKey() && save.lastSolvedDate !== tk) save.streak = 0;
-  save.today = { date: tk, guesses: [], done: false, solved: false, points: 0 };
+  save.today = { date: tk, guesses: [], done: false, solved: false, points: 0, submitted: false };
   persist(save);
 }
 
@@ -251,8 +292,10 @@ const els = {
   sub: $("sub"), riddleText: $("riddleText"), slots: $("slots"), inputRow: $("inputRow"),
   input: $("guessInput"), btn: $("guessBtn"), result: $("result"), answerLabel: $("answerLabel"),
   answerText: $("answerText"), stars: $("stars"), shareBtn: $("shareBtn"), countdown: $("countdown"),
-  footer: $("footer"), main: $("main"),
-  statStreak: $("statStreak"), statPoints: $("statPoints"), statBest: $("statBest"),
+  left: $("left"), main: $("main"),
+  statStreak: $("statStreak"), statPoints: $("statPoints"), statRank: $("statRank"),
+  joinBox: $("joinBox"), joinEmail: $("joinEmail"), joinBtn: $("joinBtn"),
+  joinErr: $("joinErr"), joinedNote: $("joinedNote"),
 };
 
 els.sub.textContent = "No. " + (num + 1) + " · " +
@@ -263,7 +306,6 @@ function render() {
   const t = save.today;
   els.statStreak.textContent = save.streak > 0 ? "🔥 " + save.streak : "—";
   els.statPoints.textContent = save.totalPoints;
-  els.statBest.textContent = save.bestStreak > 0 ? save.bestStreak : "—";
 
   els.slots.innerHTML = "";
   for (let i = 0; i < 3; i++) {
@@ -285,19 +327,25 @@ function render() {
   }
 
   if (t.done) {
+    els.left.style.display = "none";
     els.inputRow.style.display = "none";
     els.result.style.display = "";
     els.answerLabel.textContent = t.solved ? (t.points === 3 ? "First try!" : "Solved") : "The answer was";
     els.answerText.textContent = riddle.a[0].replace(/^(a|an|the)\s/i, "");
     els.stars.textContent = "★".repeat(t.points) + "☆".repeat(3 - t.points);
-    els.footer.textContent = "";
+    if (save.player) {
+      els.joinBox.style.display = "none";
+    } else {
+      els.joinBox.style.display = "";
+      els.joinedNote.style.display = "none";
+    }
   } else {
     const left = 3 - t.guesses.length;
-    els.footer.textContent = left + (left !== 1 ? " guesses left" : " guess left");
+    els.left.textContent = left + (left !== 1 ? " guesses left" : " guess left");
   }
 }
 
-function submit() {
+function submitGuess() {
   const g = els.input.value.trim();
   const t = save.today;
   if (!g || t.done) return;
@@ -319,18 +367,19 @@ function submit() {
     Object.assign(t, { done: true, solved: false, points: 0 });
   } else {
     els.main.classList.remove("shake");
-    void els.main.offsetWidth; // restart animation
+    void els.main.offsetWidth;
     els.main.classList.add("shake");
   }
   els.input.value = "";
   els.btn.disabled = true;
   persist(save);
   render();
+  if (save.today.done) submitScore();
 }
 
 els.input.addEventListener("input", () => { els.btn.disabled = !els.input.value.trim(); });
-els.input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
-els.btn.addEventListener("click", submit);
+els.input.addEventListener("keydown", (e) => { if (e.key === "Enter") submitGuess(); });
+els.btn.addEventListener("click", submitGuess);
 
 els.shareBtn.addEventListener("click", async () => {
   const t = save.today;
@@ -345,6 +394,65 @@ els.shareBtn.addEventListener("click", async () => {
   } catch {}
 });
 
+// ---------- Worldwide rank ----------
+function makeId() {
+  try { return "p-" + crypto.randomUUID(); }
+  catch { return "p-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10); }
+}
+
+async function submitScore() {
+  if (!save.player || !SCRIPT_URL) return;
+  if (save.today.submitted) { loadRank(); return; }
+  try {
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        id: save.player.id,
+        name: save.player.email.split("@")[0].slice(0, 20),
+        email: save.player.email,
+        points: save.totalPoints,
+        streak: save.streak,
+        best: save.bestStreak,
+      }),
+    });
+    save.today.submitted = true;
+    persist(save);
+    loadRank();
+  } catch {}
+}
+
+async function loadRank() {
+  if (!save.player || !SCRIPT_URL) return;
+  try {
+    const res = await fetch(SCRIPT_URL + "?id=" + encodeURIComponent(save.player.id));
+    const data = await res.json();
+    if (data && data.rank) {
+      els.statRank.textContent = "#" + data.rank;
+      els.joinedNote.style.display = "";
+      els.joinedNote.textContent = "You're #" + data.rank + " worldwide of " + data.players + " player" + (data.players !== 1 ? "s" : "");
+    }
+  } catch {}
+}
+
+els.joinBtn.addEventListener("click", async () => {
+  const email = els.joinEmail.value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    els.joinErr.style.display = "block";
+    return;
+  }
+  els.joinErr.style.display = "none";
+  els.joinBtn.disabled = true;
+  els.joinBtn.textContent = "…";
+  save.player = { id: makeId(), email };
+  save.today.submitted = false;
+  persist(save);
+  await submitScore();
+  els.joinBtn.textContent = "Track";
+  els.joinBtn.disabled = false;
+  render();
+});
+els.joinEmail.addEventListener("keydown", (e) => { if (e.key === "Enter") els.joinBtn.click(); });
+
 // countdown to next riddle
 setInterval(() => {
   if (!save.today.done) return;
@@ -356,6 +464,7 @@ setInterval(() => {
 }, 1000);
 
 render();
+if (save.player) loadRank();
 </script>
 </body>
 </html>
