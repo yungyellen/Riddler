@@ -388,7 +388,6 @@ els.shareBtn.addEventListener("click", async () => {
   const bits = [];
   if (save.streak > 1) bits.push("🔥 " + save.streak + " day streak");
   if (myRank) bits.push("#" + myRank + " worldwide");
-  bits.push("No. " + (num + 1));
   const headline = t.solved
     ? "I solved today's Riddler in " + t.guesses.length + (t.guesses.length === 1 ? " guess! " : " guesses ") + stars
     : "Today's Riddler stumped me " + stars;
