@@ -22,6 +22,7 @@
     --muted: #8FA6B8;
     --sky: #5BA9E0;
     --sky-deep: #4694CE;
+    --sky-tint: #EFF7FD;
     --gold: #F5B700;
     --yellow-bg: #FFF6D6;
     --yellow-border: #F2DC8A;
@@ -48,8 +49,8 @@
   .stat b { display: block; font-size: 18px; font-weight: 700; }
   .stat span { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
   main { width: 100%; max-width: 420px; }
-  .riddle { font-size: 22px; font-weight: 600; line-height: 1.5; text-align: center; margin: 0 0 28px; }
-  .slots { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+  .riddle { font-size: 22px; font-weight: 600; line-height: 1.5; text-align: center; margin: 0 0 22px; }
+  .slots { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
   .slot {
     border: 1.5px solid var(--slot-border); border-radius: 8px; padding: 12px 16px;
     font-size: 15px; display: flex; justify-content: space-between; align-items: center;
@@ -80,10 +81,15 @@
   .share { width: 100%; }
   .countdown { font-size: 12px; color: var(--muted); margin-top: 14px; font-variant-numeric: tabular-nums; }
 
-  /* Rank tracking */
-  .join { margin-top: 22px; }
-  .join p { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+  /* Rank tracking — prominent card */
+  .join {
+    margin-top: 24px; padding: 20px 18px; text-align: center;
+    background: var(--sky-tint); border: 1.5px solid var(--sky); border-radius: 12px;
+  }
+  .join h3 { margin: 0 0 4px; font-size: 17px; font-weight: 800; }
+  .join p { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
   .join .fields { display: flex; gap: 10px; }
+  .join input { background: #fff; }
   .join .err { color: #C0564B; font-size: 12px; margin-top: 8px; display: none; }
   .joined-note { font-size: 13px; color: var(--muted); margin-top: 16px; }
 
@@ -114,12 +120,12 @@
 
 <main id="main">
   <p class="riddle" id="riddleText"></p>
-  <div class="slots" id="slots"></div>
   <div class="left" id="left"></div>
   <div class="inputRow" id="inputRow">
     <input type="text" id="guessInput" placeholder="Your answer…" autocomplete="off" autofocus>
     <button id="guessBtn" disabled>Guess</button>
   </div>
+  <div class="slots" id="slots"></div>
   <div class="result" id="result" style="display:none">
     <div class="answerLabel" id="answerLabel"></div>
     <div class="answer" id="answerText"></div>
@@ -128,7 +134,8 @@
     <div class="countdown" id="countdown"></div>
 
     <div class="join" id="joinBox" style="display:none">
-      <p>Enter your email to track your worldwide rank</p>
+      <h3>Where do you rank worldwide? 🌍</h3>
+      <p>Enter your email to track your rank against every player</p>
       <div class="fields">
         <input type="email" id="joinEmail" placeholder="you@email.com" autocomplete="email">
         <button id="joinBtn">Track</button>
