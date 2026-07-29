@@ -99,6 +99,23 @@
   footer a { color: #B4C4D1; }
   footer a:hover { color: var(--muted); }
 
+  /* Top 5 leaderboard */
+  .divider { border: none; border-top: 1px solid var(--hairline); margin: 22px 0; }
+  .board { width: 100%; max-width: 420px; margin: 22px 0 8px; }
+  .board h2 {
+    font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+    text-align: center; margin: 0 0 12px; font-weight: 700;
+  }
+  .board-rows { display: flex; flex-direction: column; gap: 6px; }
+  .brow {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    border: 1.5px solid var(--slot-border); border-radius: 8px; background: var(--slot-bg); font-size: 14px;
+  }
+  .brow .rank { width: 20px; font-weight: 800; color: var(--muted); }
+  .brow:nth-child(1) .rank, .brow:nth-child(2) .rank, .brow:nth-child(3) .rank { color: var(--gold); }
+  .brow .bname { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brow .bpts { font-weight: 700; }
+
   .shake { animation: shake .4s ease; }
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 50%{transform:translateX(6px)} 75%{transform:translateX(-4px)} }
   @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -126,24 +143,34 @@
     <button id="guessBtn" disabled>Guess</button>
   </div>
   <div class="slots" id="slots"></div>
+
+  <hr class="divider">
+
   <div class="result" id="result" style="display:none">
     <div class="answerLabel" id="answerLabel"></div>
     <div class="answer" id="answerText"></div>
     <div class="stars" id="stars"></div>
-    <button class="share" id="shareBtn">Share result</button>
-    <div class="countdown" id="countdown"></div>
 
     <div class="join" id="joinBox" style="display:none">
-      <h3>Where do you rank worldwide? 🌍</h3>
-      <p>Enter your email to track your rank against every player</p>
-      <div class="fields">
-        <input type="email" id="joinEmail" placeholder="you@email.com" autocomplete="email">
-        <button id="joinBtn">Track</button>
+      <h3>Join the leaderboard 🌍</h3>
+      <p>Log your score to join the leaderboard</p>
+      <div class="fields" style="flex-direction:column">
+        <input type="text" id="joinName" placeholder="Username" maxlength="20" autocomplete="off">
+        <input type="email" id="joinEmail" placeholder="Email" autocomplete="email">
+        <button id="joinBtn" style="width:100%">Join</button>
       </div>
-      <div class="err" id="joinErr">Please enter a valid email.</div>
+      <div class="err" id="joinErr">Please enter a username and a valid email.</div>
     </div>
     <div class="joined-note" id="joinedNote" style="display:none"></div>
+
+    <button class="share" id="shareBtn">Share result</button>
+    <div class="countdown" id="countdown"></div>
   </div>
+
+  <section class="board" id="board" style="display:none">
+    <h2>Top 5 Today</h2>
+    <div class="board-rows" id="boardRows"></div>
+  </section>
 </main>
 
 <footer>
@@ -301,8 +328,9 @@ const els = {
   answerText: $("answerText"), stars: $("stars"), shareBtn: $("shareBtn"), countdown: $("countdown"),
   left: $("left"), main: $("main"),
   statStreak: $("statStreak"), statPoints: $("statPoints"), statRank: $("statRank"),
-  joinBox: $("joinBox"), joinEmail: $("joinEmail"), joinBtn: $("joinBtn"),
+  joinBox: $("joinBox"), joinEmail: $("joinEmail"), joinName: $("joinName"), joinBtn: $("joinBtn"),
   joinErr: $("joinErr"), joinedNote: $("joinedNote"),
+  board: $("board"), boardRows: $("boardRows"),
 };
 
 els.sub.textContent = "No. " + (num + 1) + " · " +
@@ -426,7 +454,7 @@ async function submitScore() {
       method: "POST",
       body: JSON.stringify({
         id: save.player.id,
-        name: save.player.email.split("@")[0].slice(0, 20),
+        name: save.player.name,
         email: save.player.email,
         points: save.totalPoints,
         streak: save.streak,
@@ -440,9 +468,10 @@ async function submitScore() {
 }
 
 async function loadRank() {
-  if (!save.player || !SCRIPT_URL) return;
+  if (!SCRIPT_URL) return;
   try {
-    const res = await fetch(SCRIPT_URL + "?id=" + encodeURIComponent(save.player.id));
+    const idParam = save.player ? "?id=" + encodeURIComponent(save.player.id) : "";
+    const res = await fetch(SCRIPT_URL + idParam);
     const data = await res.json();
     if (data && data.rank) {
       myRank = data.rank;
@@ -450,19 +479,40 @@ async function loadRank() {
       els.joinedNote.style.display = "";
       els.joinedNote.textContent = "You're #" + data.rank + " worldwide of " + data.players + " player" + (data.players !== 1 ? "s" : "");
     }
+    renderBoard(data && data.top5 ? data.top5 : []);
   } catch {}
+}
+
+function renderBoard(top5) {
+  if (!top5 || top5.length === 0) {
+    els.board.style.display = "none";
+    return;
+  }
+  els.board.style.display = "";
+  els.boardRows.innerHTML = "";
+  top5.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "brow";
+    const rank = document.createElement("span"); rank.className = "rank"; rank.textContent = i + 1;
+    const bname = document.createElement("span"); bname.className = "bname"; bname.textContent = p.name;
+    const bpts = document.createElement("span"); bpts.className = "bpts"; bpts.textContent = (Number(p.points) || 0) + " pts";
+    row.append(rank, bname, bpts);
+    els.boardRows.appendChild(row);
+  });
 }
 
 els.joinBtn.addEventListener("click", async () => {
   const email = els.joinEmail.value.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  const name = els.joinName.value.trim();
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!validEmail || !name) {
     els.joinErr.style.display = "block";
     return;
   }
   els.joinErr.style.display = "none";
   els.joinBtn.disabled = true;
   els.joinBtn.textContent = "…";
-  save.player = { id: makeId(), email };
+  save.player = { id: makeId(), email, name: name.slice(0, 20) };
   save.today.submitted = false;
   persist(save);
   await submitScore();
@@ -470,6 +520,7 @@ els.joinBtn.addEventListener("click", async () => {
   els.joinBtn.disabled = false;
   render();
 });
+els.joinName.addEventListener("keydown", (e) => { if (e.key === "Enter") els.joinBtn.click(); });
 els.joinEmail.addEventListener("keydown", (e) => { if (e.key === "Enter") els.joinBtn.click(); });
 
 // countdown to next riddle
@@ -483,7 +534,7 @@ setInterval(() => {
 }, 1000);
 
 render();
-if (save.player) loadRank();
+loadRank();
 </script>
 </body>
 </html>
